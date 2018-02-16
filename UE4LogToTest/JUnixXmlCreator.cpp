@@ -56,7 +56,8 @@ void JUnitXmlCreator::parseTestcases()
 					<< " errors=\"0\" tests=\"" << testcases.size() << "\""
 					<< " skipped=\"0\" failures=\"" << failedIndices.size() << "\""
 					<< " time=\"" << diffSeconds << "." << std::setfill('0') << std::setw(3) << diffMillis << "\""
-					<< " timestamp=\"" << std::put_time(&testStartTime, "%Y-%m-%dT%H:%M:%S") << "\">" << std::endl;
+					//<< " timestamp=\"" << std::put_time(&testStartTime, "%Y-%m-%dT%H:%M:%S") << "\">" << std::endl;
+					<< ">" << std::endl;
 
 				std::tm lastTestStartTime = testStartTime;
 				int lastTestStartTimeMillis = testStartTimeMillis;

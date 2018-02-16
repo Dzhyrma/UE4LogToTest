@@ -1,0 +1,11 @@
+﻿  stdafx.cpp
+  JUnixXmlCreator.cpp
+JUnixXmlCreator.cpp(64): warning C4018: '<': signed/unsigned mismatch
+JUnixXmlCreator.cpp(133): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  UE4LogToTest.cpp
+  Generating code
+  165 of 1320 functions (12.5%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    48 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  UE4LogToTest.vcxproj -> C:\Projects\UE4LogToTest\Release\UE4LogToTest.exe
