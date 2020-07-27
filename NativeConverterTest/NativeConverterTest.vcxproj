@@ -23,7 +23,7 @@
     <ProjectGuid>{A5DDB35D-1CFD-4A0F-972F-1319A46B6FF1}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>NativeConverterTest</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <ProjectSubType>NativeUnitTestProject</ProjectSubType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

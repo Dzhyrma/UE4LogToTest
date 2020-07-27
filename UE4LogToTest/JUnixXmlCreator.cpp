@@ -1,17 +1,17 @@
 #include "stdafx.h"
 
-#include <time.h>
 #include <unordered_set>
 #include <vector>
+#include <map>
 #include <iostream>
 #include <iomanip>
+#include <string>
 
 #include "JUnitXmlCreator.h"
 
-const std::regex JUnitXmlCreator::TEST_START_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\].*Running Automation: '(.*)' \\(Class Name: '(.*)'\\)$");
-const std::regex JUnitXmlCreator::TEST_END_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\].*Automation Test (Succeeded|Failed) \\((.*)\\)$");
-
-const std::regex JUnitXmlCreator::TEST_CASE_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\]\\[\\d+\\](Error)?:?\\s*(.*):\\s*(Expected .*)$");
+const std::regex JUnitXmlCreator::TEST_START_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\].*LogAutomationController: Display: Test Started. Name=\\{(.*)\\}$");
+const std::regex JUnitXmlCreator::TEST_END_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\].*LogAutomationController: .*: Test Completed. Result=\\{(.*)\\} Name=\\{(.*)\\} Path=\\{(.*)\\}$");
+const std::regex JUnitXmlCreator::TEST_ERROR_REGEX = std::regex("^\\[(\\d+\\.\\d+\\.\\d+\\-\\d+\\.\\d+\\.\\d+):(\\d+)\\].*LogAutomationController: Error: (.*) \\[(.*)\\]$");
 
 JUnitXmlCreator::JUnitXmlCreator(char* inputFileName, char* outputFileName) :
 	outfilePath(outputFileName),
@@ -32,88 +32,110 @@ void JUnitXmlCreator::parseTestcases()
 	outfile << "<testsuites>" << std::endl;
 
 	std::string line;
-	std::string testname = "";
-	std::string className = "";
-	std::vector<std::string> testcases;
-	std::vector<std::string> testcaseStacktraces;
-	std::vector<std::tm> testcaseTimestamps;
-	std::vector<int> testcaseTimestampsMillis;
-	std::unordered_set<int> failedIndices;
+	std::string testname = "Unknown";
 	std::tm testStartTime = {};
 	int testStartTimeMillis = 0;
+
+	std::map<std::string, TestSuite> testSuites;
+	TestCase* lastTestCase = nullptr;
+
 	while (std::getline(infile, line)) {
 		std::smatch sm;
-		if (testname != "")
+		if (std::regex_match(line, sm, TEST_END_REGEX))
 		{
-			if (std::regex_match(line, sm, TEST_END_REGEX))
+			std::string suiteName = sm[5];
+			std::size_t pos = suiteName.find(sm[4]);
+			if (pos > 0)
 			{
-				std::tm testEndTime = {};
-				parseTime(sm[1], testEndTime);
-				int testEndTimeMillis = std::stoi(sm[2]);
-				int diffSeconds, diffMillis;
-				calculateTimeDiff(testStartTime, testStartTimeMillis, testEndTime, testEndTimeMillis, diffSeconds, diffMillis);
-				outfile << "\t<testsuite name=\"" << testname << "\""
-					<< " errors=\"0\" tests=\"" << testcases.size() << "\""
-					<< " skipped=\"0\" failures=\"" << failedIndices.size() << "\""
-					<< " time=\"" << diffSeconds << "." << std::setfill('0') << std::setw(3) << diffMillis << "\""
-					//<< " timestamp=\"" << std::put_time(&testStartTime, "%Y-%m-%dT%H:%M:%S") << "\">" << std::endl;
-					<< ">" << std::endl;
-
-				std::tm lastTestStartTime = testStartTime;
-				int lastTestStartTimeMillis = testStartTimeMillis;
-				for (int i = 0; i < testcases.size(); i++)
-				{
-					calculateTimeDiff(lastTestStartTime, lastTestStartTimeMillis, testcaseTimestamps[i], testcaseTimestampsMillis[i], diffSeconds, diffMillis);
-					lastTestStartTime = testcaseTimestamps[i];
-					lastTestStartTimeMillis = testcaseTimestampsMillis[i];
-
-					outfile << "\t\t<testcase classname=\"" << className << "\""
-						<< " name=\"" << testcases[i] << "\""
-						<< " time=\"" << diffSeconds << "." << std::setfill('0') << std::setw(3) << diffMillis << "\"";
-					if (failedIndices.count(i) == 0)
-					{
-						outfile << "/>" << std::endl;
-					}
-					else
-					{
-						outfile << ">" << std::endl;
-						outfile << "\t\t\t<failure message=\"" << testcases[i] << "\">"
-							<< testcaseStacktraces[i] << ": [" << className << "] assertion failed</failure>" << std::endl;
-						outfile << "\t\t</testcase>" << std::endl;
-					}
-				}
-
-				outfile << "\t</testsuite>" << std::endl;
-				testname = "";
-				className = "";
-				testcases.clear();
-				testcaseStacktraces.clear();
-				testcaseTimestamps.clear();
-				testcaseTimestampsMillis.clear();
-				failedIndices.clear();
+				suiteName = suiteName.substr(0, pos - 1);
 			}
-			else if (std::regex_match(line, sm, TEST_CASE_REGEX))
+
+			if (testSuites.find(suiteName) == testSuites.end())
 			{
-				if (sm[3] == "Error") {
-					failedIndices.emplace(testcases.size());
-				}
-				std::tm testcaseTime = {};
-				parseTime(sm[1], testcaseTime);
-				testcaseTimestamps.push_back(testcaseTime);
-				testcaseTimestampsMillis.push_back(std::stoi(sm[2]));
-				testcaseStacktraces.push_back(sm[4]);
-				testcases.push_back(sm[5]);
+				testSuites.emplace(suiteName, TestSuite(suiteName));
 			}
+
+			TestCase testCase = TestCase();
+			testCase.name = sm[4];
+			testCase.startTime = testStartTime;
+			testCase.startTimeMillis = testStartTimeMillis;
+			parseTime(sm[1], testCase.endTime);
+			testCase.endTimeMillis = std::stoi(sm[2]);
+			testCase.result = sm[3];
+
+			TestSuite& testSuite = testSuites[suiteName];
+
+			if (testCase.result == "Failed")
+			{
+				testSuite.errors++;
+			}
+
+			testSuite.testCases.push_back(testCase);
+
+			lastTestCase = &testSuite.testCases[testSuite.testCases.size() - 1];
 		}
-
 		if (std::regex_match(line, sm, TEST_START_REGEX))
 		{
 			testname = sm[3];
-			className = sm[4];
 
 			parseTime(sm[1], testStartTime);
 			testStartTimeMillis = std::stoi(sm[2]);
 		}
+		if (std::regex_match(line, sm, TEST_ERROR_REGEX))
+		{
+			if (lastTestCase != nullptr)
+			{
+				lastTestCase->errors.push_back(std::pair<std::string, std::string>(sm[3], sm[4]));
+			}
+		}
+
+	}
+
+	for (std::map<std::string, TestSuite>::iterator it = testSuites.begin(); it != testSuites.end(); ++it)
+	{
+		TestSuite& testSuite = it->second;
+		if (testSuite.testCases.size() == 0) continue;
+
+		TestCase& firstTestCase = testSuite.testCases[0];
+		TestCase& lastTestCase = testSuite.testCases[testSuite.testCases.size() - 1];
+
+		int diffSeconds, diffMillis;
+		calculateTimeDiff(firstTestCase.startTime, firstTestCase.startTimeMillis, lastTestCase.endTime, lastTestCase.endTimeMillis, diffSeconds, diffMillis);
+
+		outfile << "\t<testsuite name=\"" << testSuite.name << "\""
+			<< " errors=\"0\" tests=\"" << testSuite.testCases.size() << "\""
+			<< " skipped=\"0\" failures=\"" << testSuite.errors << "\""
+			<< " time=\"" << diffSeconds << "." << std::setfill('0') << std::setw(3) << diffMillis << "\""
+			//<< " timestamp=\"" << std::put_time(&testStartTime, "%Y-%m-%dT%H:%M:%S") << "\">" << std::endl;
+			<< ">" << std::endl;
+
+		for (int i = 0; i < testSuite.testCases.size(); i++)
+		{
+			TestCase& testCase = testSuite.testCases[i];
+			calculateTimeDiff(testCase.startTime, testCase.startTimeMillis, testCase.endTime, testCase.endTimeMillis, diffSeconds, diffMillis);
+
+			outfile << "\t\t<testcase classname=\"" << testSuite.name << "\""
+				<< " name=\"" << testCase.name << "\""
+				<< " time=\"" << diffSeconds << "." << std::setfill('0') << std::setw(3) << diffMillis << "\"";
+			if (testCase.result == "Passed")
+			{
+				outfile << "/>" << std::endl;
+			}
+			else
+			{
+				outfile << ">" << std::endl;
+				outfile << "\t\t\t<failure message=\"Assertion(s) Failed\">" << std::endl;
+				
+				for (int j = 0; j < testCase.errors.size(); j++)
+				{
+					outfile << "\t\t\t\t" << testCase.errors[j].first << " [" << testCase.errors[j].second << "]" << std::endl;
+				}
+
+				outfile << "\t\t\t</failure>" << std::endl;
+				outfile << "\t\t</testcase>" << std::endl;
+			}
+		}
+		outfile << "\t</testsuite>" << std::endl;
 	}
 
 	outfile << "</testsuites>" << std::endl;

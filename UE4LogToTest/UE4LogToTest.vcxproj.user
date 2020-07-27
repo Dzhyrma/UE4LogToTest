@@ -7,4 +7,8 @@
     <LocalDebuggerCommandArguments>"C:\Projects\PlanetsUnbound\Saved\Logs\output-backup-2018.02.11-14.19.59.txt" "C:\Projects\PlanetsUnbound\Saved\Logs\Test.xml"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommandArguments>D:\Projects\KotB\Saved\Logs\output.txt D:\Projects\KotB\Saved\Logs\output.xml</LocalDebuggerCommandArguments>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
 </Project>
